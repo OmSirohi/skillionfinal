@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResumeRAG</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <nav>
+        <div class="nav-left">
+            <a href="/">Home</a>
+            <a href="/upload">Upload</a>
+            <a href="/search">Search</a>
+            <a href="/jobs">Jobs</a>
+        </div>
+        <div class="nav-right">
+            <span id="nav-user"></span>
+            <a id="login-link" href="/login">Login</a>
+            <a id="register-link" href="/register">Register</a>
+            <button id="logout-button" style="display:none;">Logout</button>
+        </div>
+    </nav>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    <script>
+    // Simple nav bar logic to show/hide login/register based on stored token
+    document.addEventListener('DOMContentLoaded', () => {
+        const token = localStorage.getItem('token');
+        const username = localStorage.getItem('username');
+        const navUser = document.getElementById('nav-user');
+        const loginLink = document.getElementById('login-link');
+        const registerLink = document.getElementById('register-link');
+        const logoutBtn = document.getElementById('logout-button');
+        if (token) {
+            navUser.textContent = username ? `Signed in as ${username}` : '';
+            loginLink.style.display = 'none';
+            registerLink.style.display = 'none';
+            logoutBtn.style.display = 'inline-block';
+        } else {
+            navUser.textContent = '';
+            loginLink.style.display = 'inline-block';
+            registerLink.style.display = 'inline-block';
+            logoutBtn.style.display = 'none';
+        }
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('username');
+            window.location.href = '/login';
+        });
+    });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

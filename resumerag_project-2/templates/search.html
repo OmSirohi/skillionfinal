@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Search Resumés</h2>
+<p>Use the search bar to filter resumés. Leave empty to list the newest resumés. Recruiters see all resumés; candidates only see their own.</p>
+<input type="text" id="search-query" placeholder="Enter keywords">
+<button id="search-button">Search</button>
+<div id="search-results"></div>
+<button id="load-more" style="display:none;">Load more</button>
+{% endblock %}
+{% block scripts %}
+<script>
+const searchQueryInput = document.getElementById('search-query');
+const searchButton = document.getElementById('search-button');
+const resultsDiv = document.getElementById('search-results');
+const loadMoreButton = document.getElementById('load-more');
+let currentOffset = 0;
+let currentQuery = '';
+let hasMore = false;
+
+async function fetchResults() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        resultsDiv.innerHTML = '<p>Please login first.</p>';
+        return;
+    }
+    const params = new URLSearchParams();
+    params.set('limit', 10);
+    params.set('offset', currentOffset);
+    if (currentQuery) params.set('q', currentQuery);
+    try {
+        const response = await fetch('/api/resumes?' + params.toString(), {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await response.json();
+        if (response.ok) {
+            data.items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'result-item';
+                const link = document.createElement('a');
+                link.href = '/candidates/' + item.id;
+                link.textContent = item.candidate + ' – ' + item.filename;
+                const snippet = document.createElement('p');
+                snippet.textContent = item.snippet;
+                div.appendChild(link);
+                div.appendChild(snippet);
+                resultsDiv.appendChild(div);
+            });
+            if (data.next_offset !== null && data.next_offset !== undefined) {
+                currentOffset = data.next_offset;
+                hasMore = true;
+                loadMoreButton.style.display = 'inline-block';
+            } else {
+                hasMore = false;
+                loadMoreButton.style.display = 'none';
+            }
+        } else {
+            resultsDiv.innerHTML = '<p>' + (data.error ? data.error.message : 'Failed to fetch results') + '</p>';
+        }
+    } catch (err) {
+        resultsDiv.innerHTML = '<p>An error occurred.</p>';
+    }
+}
+
+searchButton.addEventListener('click', () => {
+    currentOffset = 0;
+    resultsDiv.innerHTML = '';
+    currentQuery = searchQueryInput.value.trim();
+    fetchResults();
+});
+
+loadMoreButton.addEventListener('click', () => {
+    if (hasMore) {
+        fetchResults();
+    }
+});
+</script>
+{% endblock %}

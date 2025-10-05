@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Candidate Resumé</h2>
+<div id="resume-container">
+    <p id="resume-meta"></p>
+    <pre id="resume-text" class="resume-text"></pre>
+    <p id="resume-error" class="error"></p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const resumeId = {{ resume_id|int }};
+async function loadResume() {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        document.getElementById('resume-error').textContent = 'Please login first.';
+        return;
+    }
+    try {
+        const resp = await fetch('/api/resumes/' + resumeId, {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            document.getElementById('resume-meta').textContent = data.candidate + ' – ' + data.filename;
+            document.getElementById('resume-text').textContent = data.text;
+        } else {
+            document.getElementById('resume-error').textContent = data.error ? data.error.message : 'Failed to load resume';
+        }
+    } catch (err) {
+        document.getElementById('resume-error').textContent = 'An error occurred';
+    }
+}
+document.addEventListener('DOMContentLoaded', loadResume);
+</script>
+{% endblock %}

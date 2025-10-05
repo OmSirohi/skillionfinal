@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Register</h2>
+<form id="register-form">
+    <label for="username">Username:</label>
+    <input type="text" id="username" name="username" required>
+    <br>
+    <label for="password">Password:</label>
+    <input type="password" id="password" name="password" required>
+    <br>
+    <label for="role">Role:</label>
+    <select id="role" name="role" required>
+        <option value="candidate">Candidate</option>
+        <option value="recruiter">Recruiter</option>
+    </select>
+    <br>
+    <button type="submit">Register</button>
+    <p id="register-error" class="error"></p>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('register-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const role = document.getElementById('role').value;
+    const payload = { username, password, role };
+    try {
+        const response = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (response.ok) {
+            // auto login after register
+            const loginResp = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const loginResult = await loginResp.json();
+            if (loginResp.ok) {
+                localStorage.setItem('token', loginResult.token);
+                localStorage.setItem('username', username);
+                window.location.href = '/';
+            } else {
+                document.getElementById('register-error').textContent = 'Registration succeeded but login failed';
+            }
+        } else {
+            document.getElementById('register-error').textContent = result.error ? result.error.message : 'Registration failed';
+        }
+    } catch (err) {
+        document.getElementById('register-error').textContent = 'An error occurred';
+    }
+});
+</script>
+{% endblock %}

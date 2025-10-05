@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Upload Resumés</h2>
+<p>Only candidates may upload resumés. Accepted formats: PDF, TXT or ZIP archives containing multiple resumés.</p>
+<form id="upload-form" enctype="multipart/form-data">
+    <input type="file" id="files" name="files" multiple required>
+    <br>
+    <button type="submit">Upload</button>
+    <p id="upload-message"></p>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('upload-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    const messageEl = document.getElementById('upload-message');
+    if (!token) {
+        messageEl.textContent = 'Please login first.';
+        return;
+    }
+    const filesInput = document.getElementById('files');
+    const files = Array.from(filesInput.files);
+    if (files.length === 0) {
+        messageEl.textContent = 'Please select at least one file.';
+        return;
+    }
+    // Read each file as base64 using FileReader
+    const readFileAsBase64 = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const dataUrl = reader.result;
+            // dataUrl is like "data:application/pdf;base64,...."; strip prefix
+            const base64 = dataUrl.split(',')[1];
+            resolve({ filename: file.name, content: base64 });
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+    });
+    try {
+        const fileObjects = await Promise.all(files.map(readFileAsBase64));
+        const response = await fetch('/api/resumes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ files: fileObjects })
+        });
+        const result = await response.json();
+        if (response.ok) {
+            messageEl.textContent = 'Upload successful: ' + result.map(r => r.filename).join(', ');
+        } else {
+            messageEl.textContent = result.error ? result.error.message : 'Upload failed';
+        }
+    } catch (err) {
+        messageEl.textContent = 'An error occurred while uploading.';
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Jobs Dashboard</h2>
+<p>Recruiters can create new job postings and match candidates against them.</p>
+<div id="jobs-section">
+    <h3>Create Job</h3>
+    <form id="create-job-form">
+        <label for="job-title">Title:</label>
+        <input type="text" id="job-title" name="title" required>
+        <br>
+        <label for="job-description">Description:</label>
+        <br>
+        <textarea id="job-description" name="description" rows="4" cols="50" required></textarea>
+        <br>
+        <button type="submit">Create Job</button>
+        <p id="job-message"></p>
+    </form>
+    <h3>Your Jobs</h3>
+    <div id="job-list"></div>
+    <div id="match-results"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function loadJobs() {
+    const token = localStorage.getItem('token');
+    const jobList = document.getElementById('job-list');
+    jobList.innerHTML = '';
+    if (!token) {
+        jobList.innerHTML = '<p>Please login as recruiter.</p>';
+        return;
+    }
+    const resp = await fetch('/api/jobs', { headers: { 'Authorization': 'Bearer ' + token } });
+    const data = await resp.json();
+    if (!resp.ok) {
+        jobList.innerHTML = '<p>' + (data.error ? data.error.message : 'Failed to load jobs') + '</p>';
+        return;
+    }
+    if (data.length === 0) {
+        jobList.innerHTML = '<p>No jobs created yet.</p>';
+        return;
+    }
+    data.forEach(job => {
+        const div = document.createElement('div');
+        div.className = 'job-item';
+        const header = document.createElement('h4');
+        header.textContent = job.title;
+        const desc = document.createElement('p');
+        desc.textContent = job.description;
+        const button = document.createElement('button');
+        button.textContent = 'Match';
+        button.addEventListener('click', () => matchJob(job.id));
+        div.appendChild(header);
+        div.appendChild(desc);
+        div.appendChild(button);
+        jobList.appendChild(div);
+    });
+}
+
+async function matchJob(jobId) {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    let topN = prompt('How many top matches do you want to see?', '3');
+    if (!topN) return;
+    topN = parseInt(topN);
+    if (isNaN(topN) || topN <= 0) {
+        alert('Invalid number');
+        return;
+    }
+    const resp = await fetch('/api/jobs/' + jobId + '/match', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ top_n: topN })
+    });
+    const data = await resp.json();
+    const resultsDiv = document.getElementById('match-results');
+    resultsDiv.innerHTML = '';
+    if (!resp.ok) {
+        resultsDiv.innerHTML = '<p>' + (data.error ? data.error.message : 'Failed to match job') + '</p>';
+        return;
+    }
+    if (data.length === 0) {
+        resultsDiv.innerHTML = '<p>No matching candidates found.</p>';
+        return;
+    }
+    const list = document.createElement('ul');
+    data.forEach(item => {
+        const li = document.createElement('li');
+        li.innerHTML = '<strong>' + item.candidate + '</strong> (score: ' + item.score.toFixed(3) + ')<br>' +
+            '<em>Evidence:</em> ' + item.evidence + '<br>' +
+            '<em>Missing requirements:</em> ' + (item.missing_requirements.length > 0 ? item.missing_requirements.join(', ') : 'None');
+        list.appendChild(li);
+    });
+    resultsDiv.appendChild(list);
+}
+
+document.getElementById('create-job-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    if (!token) {
+        document.getElementById('job-message').textContent = 'Please login as recruiter.';
+        return;
+    }
+    const title = document.getElementById('job-title').value.trim();
+    const description = document.getElementById('job-description').value;
+    try {
+        const resp = await fetch('/api/jobs', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ title, description })
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+            document.getElementById('job-message').textContent = 'Job created.';
+            e.target.reset();
+            await loadJobs();
+        } else {
+            document.getElementById('job-message').textContent = result.error ? result.error.message : 'Failed to create job';
+        }
+    } catch (err) {
+        document.getElementById('job-message').textContent = 'An error occurred';
+    }
+});
+
+// Load jobs on page load
+document.addEventListener('DOMContentLoaded', loadJobs);
+</script>
+{% endblock %}
